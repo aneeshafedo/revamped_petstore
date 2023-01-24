@@ -13,20 +13,13 @@ import ballerina/http;
 # - [The source API definition for the Pet Store](https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)
 public isolated client class Client {
     final http:Client clientEp;
-    final readonly & ApiKeysConfig? apiKeyConfig;
     # Gets invoked to initialize the `connector`.
     #
     # + config - The configurations to be used when initializing the `connector` 
     # + serviceUrl - URL of the target service 
     # + return - An error if connector initialization failed 
     public isolated function init(ConnectionConfig config, string serviceUrl = "https://petstore3.swagger.io/api/v3") returns error? {
-        http:ClientConfiguration httpClientConfig = {};
-        if config.auth is ApiKeysConfig {
-            self.apiKeyConfig = (<ApiKeysConfig>config.auth).cloneReadOnly();
-        } else {
-            config.auth = <http:BearerTokenConfig>config.auth;
-            self.apiKeyConfig = ();
-        }
+        http:ClientConfiguration httpClientConfig = {auth:{username: "test", password: "abc123"}};
         http:Client httpEp = check new (serviceUrl, httpClientConfig);
         self.clientEp = httpEp;
         return;
@@ -45,6 +38,9 @@ public isolated client class Client {
         return response;
     }
 
+    // option 1 : Using typdesc inferrence 
+
+    //
     resource isolated function post one/user(User payload, typedesc<http:Response|UserCreated|UserBadRequest> returnType = <>) returns
         returnType|error = @java:Method {
         'class: "io.ballerina.openapi.client.api.client.Functions"
@@ -53,7 +49,7 @@ public isolated client class Client {
     // since the user will not expect o have an error it is more conveient to send a particular error when found only.
     // but this way is not working
     resource isolated function post two/user(User payload, typedesc<http:Response|UserCreated> returnType = <>)
-        returns returnType|http:BadRequest = @java:Method {
+        returns returnType|UserBadRequest = @java:Method {
         'class: "io.ballerina.openapi.client.api.client.Functions"
     } external;
 
@@ -63,6 +59,7 @@ public isolated client class Client {
 
     }
 
+    // option 2 : Using union return type 
     resource isolated function post four/user(User payload) returns http:Response|UserCreated|UserBadRequest|error {
         string resourcePath = string `/user`;
         http:Request request = new;
@@ -71,12 +68,12 @@ public isolated client class Client {
         http:Response response = check self.clientEp->post(resourcePath, request);
         if response.statusCode == http:STATUS_CREATED {
             http:StatusCreated STATUS_CREATED_OBJ = new;
-            int xRateLimit = check response.getHeader("X-Rate-Limit").ensureType();
-            string xExpiresAfter = check response.getHeader("X-Expires-After").ensureType();
-            map<int|string> headers = {
-                "X-Rate-Limit": xRateLimit,
-                "X-Expires-After": xExpiresAfter
-            };
+            // why we cant get all the headers at once without giving names
+            string[] headerNames = response.getHeaderNames();
+            map<string|int|boolean|string[]|int[]|boolean[]> headers = {};
+            foreach string headerName in headerNames {
+                headers[headerName] = check response.getHeader(headerName);
+            }
             UserCreated userCreated = {
                 status: STATUS_CREATED_OBJ,
                 mediaType: response.getContentType(),
@@ -91,6 +88,7 @@ public isolated client class Client {
                 mediaType: response.getContentType(),
                 body: check response.getJsonPayload().ensureType(ErrorResponse)
             };
+            return userBadRequest;
         }
         return response;
     }

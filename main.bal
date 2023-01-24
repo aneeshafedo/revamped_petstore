@@ -12,9 +12,10 @@ public function main() returns error? {
 
     // user knows the type that he is getting. If the type is different returns error
     UserCreated res1 = check petstoreClient->/one/user.post(user);
-
+    
     http:Response|UserCreated|UserBadRequest|error res2 = petstoreClient->/four/user.post(user);
     if res2 is UserCreated {
+        int status = res2.status.code;
         io:println("Operation is success");
     } else {
         io:println("Operation is failed!!!");
