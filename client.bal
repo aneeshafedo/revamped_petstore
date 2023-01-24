@@ -18,7 +18,7 @@ public isolated client class Client {
     # + config - The configurations to be used when initializing the `connector` 
     # + serviceUrl - URL of the target service 
     # + return - An error if connector initialization failed 
-    public isolated function init(ConnectionConfig config, string serviceUrl = "https://petstore3.swagger.io/api/v3") returns error? {
+    public isolated function init(string serviceUrl = "https://petstore3.swagger.io/api/v3") returns error? {
         http:ClientConfiguration httpClientConfig = {auth:{username: "test", password: "abc123"}};
         http:Client httpEp = check new (serviceUrl, httpClientConfig);
         self.clientEp = httpEp;
@@ -60,12 +60,30 @@ public isolated client class Client {
     }
 
     // option 2 : Using union return type 
-    resource isolated function post four/user(User payload) returns http:Response|UserCreated|UserBadRequest|error {
+    resource isolated function post four/user(User payload) returns http:Response|UserOk|UserCreated|UserBadRequest|error {
         string resourcePath = string `/user`;
         http:Request request = new;
         json jsonBody = check payload.cloneWithType(json);
         request.setPayload(jsonBody, "application/json");
         http:Response response = check self.clientEp->post(resourcePath, request);
+
+        if response.statusCode == http:STATUS_OK {
+            http:StatusOK STATUS_OK_OBJ = new;
+            string[] headerNames = response.getHeaderNames();
+            map<string|int|boolean|string[]|int[]|boolean[]> headers = {};
+            foreach string headerName in headerNames {
+                headers[headerName] = check response.getHeader(headerName);
+            }
+            json userJson = check response.getJsonPayload();
+            User userBody = check userJson.cloneWithType();
+            UserOk userOk = {
+                status: STATUS_OK_OBJ,
+                mediaType: response.getContentType(),
+                headers: headers,
+                body: userBody
+            };
+            return userOk;
+        }
         if response.statusCode == http:STATUS_CREATED {
             http:StatusCreated STATUS_CREATED_OBJ = new;
             // why we cant get all the headers at once without giving names
@@ -74,11 +92,13 @@ public isolated client class Client {
             foreach string headerName in headerNames {
                 headers[headerName] = check response.getHeader(headerName);
             }
+            json userJson = check response.getJsonPayload();
+            User userBody = check userJson.cloneWithType();
             UserCreated userCreated = {
                 status: STATUS_CREATED_OBJ,
                 mediaType: response.getContentType(),
                 headers: headers,
-                body: check response.getJsonPayload().ensureType(User)
+                body: userBody
             };
             return userCreated;
         } else if response.statusCode == http:STATUS_BAD_REQUEST {

@@ -2,7 +2,7 @@ import ballerina/io;
 import ballerina/http;
 
 public function main() returns error? {
-    Client petstoreClient = check new (config = {auth: {api_key: "1234"}});
+    Client petstoreClient = check new ();
 
     User user = {
         firstName: "Test",
@@ -11,14 +11,17 @@ public function main() returns error? {
     };
 
     // user knows the type that he is getting. If the type is different returns error
-    UserCreated res1 = check petstoreClient->/one/user.post(user);
+    // UserCreated res1 = check petstoreClient->/one/user.post(user);
     
-    http:Response|UserCreated|UserBadRequest|error res2 = petstoreClient->/four/user.post(user);
+    http:Response|UserCreated|UserBadRequest|UserOk|error res2 = petstoreClient->/four/user.post(user);
     if res2 is UserCreated {
-        int status = res2.status.code;
-        io:println("Operation is success");
+        io:println("Operation is success. \n User Details : ", res2, "status code : ", res2.status.code);
+    } else if res2 is UserOk {
+        io:println("Operation is success. \n User Details : ", res2, "status code : ", res2.status.code);
+    } else if res2 is http:Response {
+        io:println("payload : ", res2.getTextPayload(), "status code : ", res2.statusCode);
     } else {
-        io:println("Operation is failed!!!");
+        io:println("Operation is failed!!!\n");
     }
 
 

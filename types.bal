@@ -70,14 +70,19 @@ public type Category record {
 
 public type User record {
     int id?;
-    string username;
-    string firstName;
-    string lastName;
+    string username?;
+    string firstName?;
+    string lastName?;
     string email?;
     string password?;
     string phone?;
     # User Status
     int userStatus?;
+};
+
+public type UserOk record {
+    *http:Ok;
+    User body?;
 };
 
 public type UserCreated record {
